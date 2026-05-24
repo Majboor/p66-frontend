@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import OrderTrackingPage, { createOrder, saveOrder, readOrders } from "./OrderTracking.jsx";
+import { useHeroVariant, HeroVariantB } from "./HeroVariants.jsx";
 
 const img = (id, width = 900, height = 540) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&h=${height}&q=82`;
@@ -29,6 +31,7 @@ const searchRoutePrefix = "/search/";
 const restaurantRoutePrefix = "/restaurants/";
 const cartRoute = "/cart";
 const checkoutRoute = "/checkout";
+const orderRoute = "/order";
 
 const slugify = (value) =>
   String(value || "")
@@ -71,6 +74,7 @@ const getRouteState = (items = restaurants) => {
 
   if (path === cartRoute) return { view: "cart" };
   if (path === checkoutRoute) return { view: "delivery" };
+  if (path === orderRoute) return { view: "order" };
 
   return { view: "home" };
 };
@@ -138,6 +142,14 @@ const getSeo = (view, query, restaurant) => {
       title: "Checkout | bringit",
       description: "Confirm delivery details and place your bringit order.",
       path: checkoutRoute
+    };
+  }
+
+  if (view === "order") {
+    return {
+      title: "Track your order | bringit",
+      description: "Live tracking for your bringit order with estimated arrival, rider details, and status updates.",
+      path: orderRoute
     };
   }
 
@@ -889,7 +901,7 @@ function Icon({ name, size = 24 }) {
 function BringitLogo({ onClick }) {
   return (
     <button className="brand" type="button" onClick={onClick} aria-label="Go to bringit home">
-      <img className="brand-icon" src="/brand/logo_icon.png" alt="" />
+      <img className="brand-icon" src="/brand/logo_icon.png" alt="" width="30" height="30" decoding="async" />
       <span className="brand-word">
         bring<span>it</span>
       </span>
@@ -956,7 +968,7 @@ function FakeQr() {
   return (
     <div className="fake-qr" aria-hidden="true">
       {blocks}
-      <img className="qr-logo" src="/brand/logo_icon.png" alt="" />
+      <img className="qr-logo" src="/brand/logo_icon.png" alt="" width="44" height="44" loading="lazy" decoding="async" />
     </div>
   );
 }
@@ -1261,7 +1273,7 @@ function RestaurantMini({ restaurant, onClick }) {
   return (
     <button className="mini-card" type="button" onClick={onClick}>
       <PersonalizationIcon index={getStableIconIndex(restaurant.id)} className="mini-card-signal" />
-      <img src={restaurant.image || fallbackRestaurantImage} alt="" />
+      <img src={restaurant.image || fallbackRestaurantImage} alt="" loading="lazy" decoding="async" />
       <h3>{restaurant.shortName}</h3>
       <p>
         <Icon name="star" size={16} />
@@ -1298,7 +1310,7 @@ function DealRail({ onSearch }) {
               <span>{sub}</span>
               <small>T&Cs apply.</small>
             </div>
-            <img src={img(image, 420, 260)} alt="" />
+            <img src={img(image, 420, 260)} alt="" loading="lazy" decoding="async" width="420" height="260" />
           </button>
         ))}
         <ArrowButton />
@@ -1314,7 +1326,7 @@ function CuisineRail({ onSearch }) {
       <div className="cuisine-row">
         {cuisines.map(([name, image]) => (
           <button className="cuisine-item" type="button" onClick={() => onSearch(name)} key={name}>
-            <img src={image} alt="" />
+            <img src={image} alt="" loading="lazy" decoding="async" width="300" height="240" />
             <span>{name}</span>
           </button>
         ))}
@@ -1375,7 +1387,7 @@ function RestaurantCard({ restaurant, onClick }) {
     >
       <div className="card-image">
         <PersonalizationIcon index={getStableIconIndex(restaurant.name)} className="card-signal" />
-        <img src={restaurant.image || fallbackRestaurantImage} alt="" />
+        <img src={restaurant.image || fallbackRestaurantImage} alt="" loading="lazy" decoding="async" width="900" height="540" />
         <span className="save-restaurant" aria-hidden="true">
           <Icon name="heart" size={20} />
         </span>
@@ -1408,10 +1420,15 @@ function HomePage({ restaurantItems, onRestaurant, onSearch }) {
   const [showDownloadCard, setShowDownloadCard] = useState(true);
   const visibleRestaurants = applyRestaurantFilters(restaurantItems, filters);
   const cuisineOptions = getCuisineFilterOptions(restaurantItems);
+  const heroVariant = useHeroVariant();
 
   return (
     <>
-      <Hero />
+      {heroVariant === "b" ? (
+        <HeroVariantB onSearch={onSearch} PersonalizationIcon={PersonalizationIcon} Icon={Icon} />
+      ) : (
+        <Hero />
+      )}
       <div className="shell page-grid">
         <div className="left-column">
           {showDownloadCard && <AppDownloadCard onClose={() => setShowDownloadCard(false)} />}
@@ -1462,7 +1479,7 @@ function SearchOverlay({ open, onClose, onSearch }) {
   return (
     <div className="search-overlay">
       <div className="search-backdrop" onClick={onClose} />
-      <div className="search-panel">
+      <div className="search-panel" role="dialog" aria-modal="true" aria-label="Search bringit">
         <div className="search-input-large">
           <Icon name="search" size={30} />
           <input
@@ -1638,7 +1655,7 @@ function RestaurantPage({ restaurant, cart, onItemClick, onBackHome, onCheckout,
           <strong>{restaurant.name}</strong>
         </div>
         <div className="restaurant-head">
-          <img src={restaurant.image || fallbackRestaurantImage} alt="" />
+          <img src={restaurant.image || fallbackRestaurantImage} alt="" width="900" height="540" decoding="async" fetchpriority="high" />
           <div>
             <p>{restaurant.categories.join(" · ")}</p>
             <h1>{restaurant.name}</h1>
@@ -1750,7 +1767,7 @@ function ProductCard({ item, onClick }) {
         <span>{item.serves}</span>
       </div>
       <div className="product-image">
-        <img src={item.image || fallbackProductImage} alt="" />
+        <img src={item.image || fallbackProductImage} alt="" loading="lazy" decoding="async" width="420" height="320" />
         <span className="product-add" aria-hidden="true">
           <Icon name="plus" />
         </span>
@@ -1784,9 +1801,9 @@ function CartPanel({ cart, onCheckout, onQtyChange }) {
                 <span>{item.qty} x {formatPrice(item.price)}</span>
               </div>
               <div className="qty-small">
-                <button type="button" onClick={() => onQtyChange(item.id, -1)}><Icon name="minus" size={16} /></button>
-                <b>{item.qty}</b>
-                <button type="button" onClick={() => onQtyChange(item.id, 1)}><Icon name="plus" size={16} /></button>
+                <button type="button" aria-label={`Decrease quantity of ${item.name}`} onClick={() => onQtyChange(item.id, -1)}><Icon name="minus" size={16} /></button>
+                <b aria-label={`Quantity: ${item.qty}`}>{item.qty}</b>
+                <button type="button" aria-label={`Increase quantity of ${item.name}`} onClick={() => onQtyChange(item.id, 1)}><Icon name="plus" size={16} /></button>
               </div>
             </div>
           ))}
@@ -1815,6 +1832,15 @@ function CartPanel({ cart, onCheckout, onQtyChange }) {
 }
 
 function ItemModal({ item, qty, variationId, onVariationChange, onQty, onClose, onAdd }) {
+  useEffect(() => {
+    if (!item) return undefined;
+    const onKey = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [item, onClose]);
+
   if (!item) return null;
 
   const variations = item.variations || [];
@@ -1825,11 +1851,11 @@ function ItemModal({ item, qty, variationId, onVariationChange, onQty, onClose, 
   return (
     <div className="modal-layer">
       <div className="modal-shade" onClick={onClose} />
-      <article className="item-modal">
+      <article className="item-modal" role="dialog" aria-modal="true" aria-label={item.name}>
         <button className="modal-close" type="button" onClick={onClose} aria-label="Close">
           <Icon name="close" size={32} />
         </button>
-        <img className="modal-image" src={selectedImage} alt="" />
+        <img className="modal-image" src={selectedImage} alt="" width="420" height="320" decoding="async" />
         <div className="modal-copy">
           <h2>{item.name}</h2>
           <p className="modal-price">
@@ -1865,9 +1891,9 @@ function ItemModal({ item, qty, variationId, onVariationChange, onQty, onClose, 
         </div>
         <footer className="modal-footer">
           <div className="quantity-stepper">
-            <button type="button" onClick={() => onQty(-1)}><Icon name="minus" /></button>
-            <span>{qty}</span>
-            <button type="button" onClick={() => onQty(1)}><Icon name="plus" /></button>
+            <button type="button" aria-label="Decrease quantity" onClick={() => onQty(-1)}><Icon name="minus" /></button>
+            <span aria-label={`Quantity: ${qty}`}>{qty}</span>
+            <button type="button" aria-label="Increase quantity" onClick={() => onQty(1)}><Icon name="plus" /></button>
           </div>
           <button className="primary-button" type="button" onClick={onAdd}>Add to cart</button>
         </footer>
@@ -1895,7 +1921,7 @@ function CartPage({ cart, restaurant, onBack, onCheckout, onQtyChange }) {
           <div className="cart-list-card">
             {cart.map((item) => (
               <div className="cart-product-row" key={item.id}>
-                <img src={item.image || fallbackProductImage} alt="" />
+                <img src={item.image || fallbackProductImage} alt="" loading="lazy" decoding="async" width="420" height="320" />
                 <div>
                   <h3>{item.name}</h3>
                   {item.variationName && <small>{item.variationName}</small>}
@@ -1903,9 +1929,9 @@ function CartPage({ cart, restaurant, onBack, onCheckout, onQtyChange }) {
                   <span>{formatPrice(item.price)}</span>
                 </div>
                 <div className="qty-small">
-                  <button type="button" onClick={() => onQtyChange(item.id, -1)}><Icon name="minus" size={16} /></button>
-                  <b>{item.qty}</b>
-                  <button type="button" onClick={() => onQtyChange(item.id, 1)}><Icon name="plus" size={16} /></button>
+                  <button type="button" aria-label={`Decrease quantity of ${item.name}`} onClick={() => onQtyChange(item.id, -1)}><Icon name="minus" size={16} /></button>
+                  <b aria-label={`Quantity: ${item.qty}`}>{item.qty}</b>
+                  <button type="button" aria-label={`Increase quantity of ${item.name}`} onClick={() => onQtyChange(item.id, 1)}><Icon name="plus" size={16} /></button>
                 </div>
                 <strong>{formatPrice(item.price * item.qty)}</strong>
               </div>
@@ -2008,6 +2034,7 @@ export default function App() {
   const [modalQty, setModalQty] = useState(1);
   const [cart, setCart] = useState(readStoredCart);
   const [celebratingOrder, setCelebratingOrder] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState(() => (initialRoute.view === "order" ? readOrders()[0]?.id || null : null));
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
@@ -2129,8 +2156,14 @@ export default function App() {
     setMetaTag("og:title", seo.title, "property");
     setMetaTag("og:description", seo.description, "property");
     setMetaTag("og:type", view === "restaurant" ? "restaurant" : "website", "property");
-    setMetaTag("og:image", `${window.location.origin}/brand/logovariations.png`, "property");
+    setMetaTag("og:site_name", "bringit", "property");
+    setMetaTag("og:url", `${window.location.origin}${seo.path}`, "property");
+    setMetaTag("og:image", `${window.location.origin}/og-image.png`, "property");
+    setMetaTag("og:image:alt", "bringit — fast food delivery across Pakistan", "property");
     setMetaTag("twitter:card", "summary_large_image");
+    setMetaTag("twitter:title", seo.title);
+    setMetaTag("twitter:description", seo.description);
+    setMetaTag("twitter:image", `${window.location.origin}/og-image.png`);
     setCanonical(seo.path);
     setJsonLd({
       "@context": "https://schema.org",
@@ -2251,6 +2284,7 @@ export default function App() {
 
   return (
     <div className={`app view-${view}`}>
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       <Header
         cartCount={cartCount}
         query={query}
@@ -2264,41 +2298,60 @@ export default function App() {
         }}
       />
 
-      {view === "home" && <HomePage restaurantItems={restaurantItems} onRestaurant={openRestaurant} onSearch={runSearch} />}
-      {view === "results" && (
-        <ResultsPage query={query} restaurantItems={restaurantItems} onRestaurant={openRestaurant} />
-      )}
-      {view === "restaurant" && (
-        <RestaurantPage
-          restaurant={selectedRestaurant}
-          cart={cart}
-          onItemClick={openItem}
-          onBackHome={() => navigate("home")}
-          onCheckout={() => navigate("cart")}
-          onQtyChange={changeCartQty}
-          onSearch={runSearch}
-        />
-      )}
-      {view === "cart" && (
-        <CartPage
-          cart={cart}
-          restaurant={selectedRestaurant}
-          onBack={() => navigate("restaurant")}
-          onCheckout={() => navigate("delivery", { path: checkoutRoute })}
-          onQtyChange={changeCartQty}
-        />
-      )}
-      {view === "delivery" && (
-        <DeliveryPage
-          cart={cart}
-          restaurant={selectedRestaurant}
-          onBack={() => navigate("cart")}
-          onPlaceOrder={() => {
-            setCelebratingOrder(true);
-            window.setTimeout(() => setCelebratingOrder(false), 1400);
-          }}
-        />
-      )}
+      <div id="main-content" tabIndex={-1}>
+        {view === "home" && <HomePage restaurantItems={restaurantItems} onRestaurant={openRestaurant} onSearch={runSearch} />}
+        {view === "results" && (
+          <ResultsPage query={query} restaurantItems={restaurantItems} onRestaurant={openRestaurant} />
+        )}
+        {view === "restaurant" && (
+          <RestaurantPage
+            restaurant={selectedRestaurant}
+            cart={cart}
+            onItemClick={openItem}
+            onBackHome={() => navigate("home")}
+            onCheckout={() => navigate("cart")}
+            onQtyChange={changeCartQty}
+            onSearch={runSearch}
+          />
+        )}
+        {view === "cart" && (
+          <CartPage
+            cart={cart}
+            restaurant={selectedRestaurant}
+            onBack={() => navigate("restaurant")}
+            onCheckout={() => navigate("delivery", { path: checkoutRoute })}
+            onQtyChange={changeCartQty}
+          />
+        )}
+        {view === "delivery" && (
+          <DeliveryPage
+            cart={cart}
+            restaurant={selectedRestaurant}
+            onBack={() => navigate("cart")}
+            onPlaceOrder={() => {
+              if (!cart.length) return;
+
+              const order = createOrder(cart, {
+                restaurantName: cart[0]?.restaurantName || selectedRestaurant?.name,
+                etaMinutes: getDeliveryMinutes(selectedRestaurant)
+              });
+              saveOrder(order);
+              setActiveOrderId(order.id);
+              setCart([]);
+              setCelebratingOrder(true);
+              window.setTimeout(() => setCelebratingOrder(false), 1400);
+              navigate("order", { path: orderRoute });
+            }}
+          />
+        )}
+        {view === "order" && (
+          <OrderTrackingPage
+            orderId={activeOrderId}
+            onHome={goHome}
+            onReorder={goHome}
+          />
+        )}
+      </div>
 
       <MobileBottomNav
         view={view}
@@ -2325,3 +2378,29 @@ export default function App() {
     </div>
   );
 }
+
+// --- Test surface -----------------------------------------------------------
+// Pure helpers re-exported so the automated unit suite can exercise the exact
+// functions the UI relies on (see tests/unit/). These are the real functions
+// used above — nothing here changes runtime behaviour.
+export {
+  formatPrice,
+  slugify,
+  getRestaurantSlug,
+  getSearchText,
+  getBholiSearchScore,
+  getSearchResults,
+  getResultsCountLabel,
+  getCuisineFilterOptions,
+  getRatingValue,
+  getDeliveryMinutes,
+  getRestaurantCuisineText,
+  restaurantMatchesOffer,
+  applyRestaurantFilters,
+  getDefaultVariationId,
+  getSelectedVariation,
+  getVariationPricing,
+  getVariationLabel,
+  getMenuTabs,
+  DEFAULT_FILTERS
+};
