@@ -1,0 +1,449 @@
+/* =====================================================================
+   enhance.css — UI polish layer (loaded after App.css)
+   Additive-only: refines spacing, elevation, micro-interactions,
+   hover / empty / loading states without changing markup structure.
+   Every motion is gated behind prefers-reduced-motion.
+   ===================================================================== */
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --lift-shadow: 0 20px 44px -18px rgba(23, 26, 31, 0.34), 0 4px 12px -6px rgba(23, 26, 31, 0.18);
+  --ring: 0 0 0 3px rgba(255, 106, 0, 0.16);
+  --glass: rgba(255, 255, 255, 0.72);
+}
+
+/* --- Global smoothing ------------------------------------------------ */
+html {
+  scroll-behavior: smooth;
+}
+
+.app *::selection {
+  background: rgba(255, 106, 0, 0.22);
+  color: var(--charcoal);
+}
+
+/* Refined, consistent focus ring across the app */
+.app button:focus-visible,
+.app input:focus-visible,
+.app textarea:focus-visible,
+.app a:focus-visible,
+.app [role="button"]:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Nicer scrollbars for the horizontal rails + page */
+.restaurant-row,
+.deal-row,
+.cuisine-row,
+.mini-row,
+.logo-row {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 106, 0, 0.4) transparent;
+}
+.restaurant-row::-webkit-scrollbar,
+.deal-row::-webkit-scrollbar,
+.cuisine-row::-webkit-scrollbar,
+.mini-row::-webkit-scrollbar,
+.logo-row::-webkit-scrollbar {
+  height: 8px;
+}
+.restaurant-row::-webkit-scrollbar-thumb,
+.deal-row::-webkit-scrollbar-thumb,
+.cuisine-row::-webkit-scrollbar-thumb,
+.mini-row::-webkit-scrollbar-thumb,
+.logo-row::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--orange), var(--orange-dark));
+  border-radius: 999px;
+}
+
+/* --- Restaurant cards ----------------------------------------------- */
+.restaurant-card {
+  transition: transform 260ms var(--ease-out), box-shadow 260ms var(--ease-out),
+    border-color 200ms ease;
+  will-change: transform;
+}
+.restaurant-card:hover,
+.restaurant-card:focus-within {
+  transform: translateY(-6px);
+  box-shadow: var(--lift-shadow);
+  border-color: rgba(255, 106, 0, 0.5);
+}
+.restaurant-card .card-image {
+  position: relative;
+}
+/* Soft gradient scrim so white text/badges read on any photo */
+.restaurant-card .card-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.28));
+  opacity: 0;
+  transition: opacity 260ms var(--ease-out);
+  pointer-events: none;
+}
+.restaurant-card:hover .card-image::after {
+  opacity: 1;
+}
+.restaurant-card .card-image img {
+  transition: transform 520ms var(--ease-out);
+}
+.restaurant-card:hover .card-image img {
+  transform: scale(1.07);
+}
+/* Heart button: reveal + pop on hover */
+.restaurant-card .save-restaurant {
+  transition: transform 240ms var(--ease-spring), background 200ms ease,
+    color 200ms ease, opacity 200ms ease;
+  opacity: 0.85;
+}
+.restaurant-card:hover .save-restaurant {
+  opacity: 1;
+  transform: scale(1.08);
+}
+.restaurant-card .save-restaurant:hover {
+  background: var(--orange);
+  color: #fff;
+  transform: scale(1.18);
+}
+.ad-badge,
+.pink-tag {
+  transition: transform 200ms var(--ease-spring);
+}
+.restaurant-card:hover .pink-tag {
+  transform: translateY(-1px) scale(1.02);
+}
+
+/* --- Mini / cuisine / deal cards ------------------------------------ */
+.mini-card,
+.cuisine-item {
+  transition: transform 240ms var(--ease-out), box-shadow 240ms var(--ease-out);
+}
+.mini-card:hover,
+.cuisine-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--lift-shadow);
+}
+.cuisine-item img {
+  transition: transform 480ms var(--ease-out);
+}
+.cuisine-item:hover img {
+  transform: scale(1.09) rotate(-1deg);
+}
+.deal-card {
+  transition: transform 260ms var(--ease-out), box-shadow 260ms var(--ease-out);
+}
+.deal-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--lift-shadow);
+}
+.deal-card img {
+  transition: transform 520ms var(--ease-out);
+}
+.deal-card:hover img {
+  transform: scale(1.06);
+}
+
+/* Arrow buttons: slide the chevron on hover */
+.arrow-button {
+  transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out),
+    background 200ms ease;
+}
+.arrow-button:hover {
+  transform: scale(1.08);
+  box-shadow: var(--lift-shadow);
+}
+.arrow-button:hover svg {
+  animation: nudge-x 700ms var(--ease-out) infinite;
+}
+@keyframes nudge-x {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+
+/* --- Product cards (menu) ------------------------------------------- */
+.product-card {
+  position: relative;
+  transition: transform 240ms var(--ease-out), box-shadow 240ms var(--ease-out),
+    border-color 200ms ease, background 200ms ease;
+}
+.product-card:hover,
+.product-card:focus-within {
+  transform: translateY(-4px);
+  border-color: rgba(255, 106, 0, 0.55);
+  background: #fff;
+  box-shadow: var(--lift-shadow);
+}
+.product-image img {
+  transition: transform 460ms var(--ease-out);
+}
+.product-card:hover .product-image img {
+  transform: scale(1.05);
+}
+.product-add {
+  transition: transform 240ms var(--ease-spring), background 200ms ease,
+    box-shadow 200ms ease;
+}
+.product-card:hover .product-add {
+  transform: scale(1.14) rotate(90deg);
+  box-shadow: 0 8px 18px -6px rgba(255, 106, 0, 0.6);
+}
+
+/* --- Primary buttons: gradient + sheen + press ---------------------- */
+.primary-button {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+  box-shadow: 0 12px 26px -12px rgba(243, 90, 0, 0.7);
+  transition: transform 200ms var(--ease-out), box-shadow 240ms var(--ease-out),
+    filter 200ms ease;
+}
+.primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px -12px rgba(243, 90, 0, 0.78);
+  filter: brightness(1.04);
+}
+.primary-button:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+.primary-button:disabled {
+  background: #d9d3cb;
+  box-shadow: none;
+}
+/* moving sheen */
+.primary-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.38) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-18deg);
+  transition: left 620ms var(--ease-out);
+  pointer-events: none;
+}
+.primary-button:hover:not(:disabled)::after {
+  left: 130%;
+}
+
+/* --- Cart interactions ---------------------------------------------- */
+.cart-line {
+  transition: background 200ms ease;
+  border-radius: 10px;
+}
+.cart-line:hover {
+  background: rgba(255, 106, 0, 0.05);
+}
+.qty-small button,
+.quantity-stepper button {
+  transition: transform 160ms var(--ease-spring), background 180ms ease,
+    color 180ms ease;
+}
+.qty-small button:hover,
+.quantity-stepper button:hover {
+  transform: scale(1.15);
+  background: var(--orange);
+  color: #fff;
+}
+.qty-small button:active,
+.quantity-stepper button:active {
+  transform: scale(0.92);
+}
+
+/* Cart badge: subtle pop when it appears */
+.cart-button span {
+  animation: badge-pop 320ms var(--ease-spring);
+}
+@keyframes badge-pop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* --- Empty states: warmer, more polished ---------------------------- */
+.empty-cart,
+.empty-large {
+  animation: fade-rise 460ms var(--ease-out) both;
+}
+.empty-cart h3,
+.empty-large h2 {
+  background: linear-gradient(120deg, var(--charcoal), var(--orange-dark));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.basket-panda {
+  animation: bob 3.2s ease-in-out infinite;
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+/* --- Loading skeleton for the menu -------------------------------- */
+/* When the menu is loading, App renders .menu-empty.loading. We turn it
+   into a shimmering skeleton grid via generated content so no JSX change
+   is required. */
+.menu-empty.loading {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+.menu-empty.loading h2,
+.menu-empty.loading p {
+  position: relative;
+  z-index: 1;
+  color: var(--muted);
+}
+.menu-empty.loading h2 {
+  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.menu-empty.loading h2::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 106, 0, 0.25);
+  border-top-color: var(--orange);
+  animation: spin 720ms linear infinite;
+}
+.menu-empty.loading::after {
+  content: "";
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 32px;
+  margin-top: 22px;
+  /* six skeleton tiles */
+  background:
+    var(--skel) 0 0 / calc(50% - 16px) 180px no-repeat,
+    var(--skel) 100% 0 / calc(50% - 16px) 180px no-repeat,
+    var(--skel) 0 208px / calc(50% - 16px) 180px no-repeat,
+    var(--skel) 100% 208px / calc(50% - 16px) 180px no-repeat,
+    var(--skel) 0 416px / calc(50% - 16px) 180px no-repeat,
+    var(--skel) 100% 416px / calc(50% - 16px) 180px no-repeat;
+  height: 596px;
+  --skel: linear-gradient(
+    100deg,
+    #efe8df 30%,
+    #f8f3ec 50%,
+    #efe8df 70%
+  );
+  border-radius: 13px;
+  animation: shimmer 1.3s linear infinite;
+  background-size: calc(50% - 16px) 180px;
+}
+@keyframes shimmer {
+  from { background-position-x: -140%, -40%, -140%, -40%, -140%, -40%; }
+  to { background-position-x: 240%, 340%, 240%, 340%, 240%, 340%; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- Entrance animations for content --------------------------------- */
+.section-block {
+  animation: fade-rise 520ms var(--ease-out) both;
+}
+.restaurant-grid .restaurant-card {
+  animation: fade-rise 480ms var(--ease-out) both;
+}
+/* stagger the first row of the all-restaurants grid */
+.restaurant-grid .restaurant-card:nth-child(1) { animation-delay: 20ms; }
+.restaurant-grid .restaurant-card:nth-child(2) { animation-delay: 60ms; }
+.restaurant-grid .restaurant-card:nth-child(3) { animation-delay: 100ms; }
+.restaurant-grid .restaurant-card:nth-child(4) { animation-delay: 140ms; }
+.restaurant-grid .restaurant-card:nth-child(5) { animation-delay: 180ms; }
+.restaurant-grid .restaurant-card:nth-child(6) { animation-delay: 220ms; }
+
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Header polish --------------------------------------------------- */
+.header-search-main {
+  transition: box-shadow 220ms var(--ease-out), border-color 200ms ease,
+    background 200ms ease;
+}
+.header-search-main:hover {
+  box-shadow: var(--ring);
+}
+.location-chip,
+.user-nav > button {
+  transition: background 180ms ease, transform 180ms var(--ease-out);
+}
+.location-chip:hover,
+.user-nav > button:hover {
+  transform: translateY(-1px);
+}
+.mode-tabs button {
+  transition: background 200ms ease, color 200ms ease, transform 160ms var(--ease-out);
+}
+.mode-tabs button:hover {
+  transform: translateY(-1px);
+}
+
+/* --- Promo strip timer: gentle pulse -------------------------------- */
+.promo-strip .timer {
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+/* --- Modal entrance -------------------------------------------------- */
+.item-modal {
+  animation: modal-in 340ms var(--ease-out) both;
+}
+.modal-shade {
+  animation: fade-in 240ms ease both;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* --- Deal / brand tiles hover --------------------------------------- */
+.logo-tile {
+  transition: transform 240ms var(--ease-out);
+}
+.logo-tile:hover {
+  transform: translateY(-4px);
+}
+.logo-tile > div {
+  transition: box-shadow 240ms var(--ease-out);
+}
+.logo-tile:hover > div {
+  box-shadow: var(--lift-shadow);
+}
+
+/* --- Respect reduced-motion ----------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .app *,
+  .app *::before,
+  .app *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .menu-empty.loading::after { animation: none; }
+  .menu-empty.loading h2::before { animation: none; }
+}

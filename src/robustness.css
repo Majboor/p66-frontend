@@ -1,0 +1,122 @@
+/* ==========================================================================
+   Robustness layer
+   --------------------------------------------------------------------------
+   Additive hardening for responsive edge cases. Loaded AFTER App.css so that
+   equal-specificity rules here win. Kept in its own file so the base
+   stylesheet stays untouched and merges stay clean.
+
+   Covers:
+     1. The tablet "dead zone" (761-1180px) where the mobile layout has
+        already ended but the desktop grid is still too wide - which pushed
+        `.available-deals` into real horizontal page scroll and clipped the
+        content rails.
+     2. Comfortable touch targets on coarse-pointer (finger) devices.
+     3. A few narrow-viewport (<=360px) safety tweaks.
+   ========================================================================== */
+
+/* -- 1. Tablet band: turn the fixed desktop rails into swipeable carousels so
+      nothing overflows the page and no content gets clipped out of reach. -- */
+@media (min-width: 761px) and (max-width: 1180px) {
+  .restaurant-row,
+  .deal-row,
+  .cuisine-row,
+  .logo-row {
+    grid-auto-columns: minmax(232px, 44%);
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 6px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+  }
+
+  .cuisine-row {
+    grid-auto-columns: 116px;
+  }
+
+  .logo-row {
+    grid-auto-columns: minmax(232px, 46%);
+  }
+
+  /* Root cause of the 768px horizontal page scroll: a fixed 3-column grid. */
+  .available-deals > div {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(232px, 48%);
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 6px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+  }
+
+  .restaurant-row > *,
+  .deal-row > *,
+  .available-deals > div > * {
+    scroll-snap-align: start;
+  }
+
+  /* Arrow buttons were decorative next to a clipped row; the row now scrolls. */
+  .arrow-button {
+    display: none;
+  }
+}
+
+/* -- 2. Coarse-pointer touch targets: grow the smallest tap surfaces to the
+      ~44px comfort threshold without disturbing their visual box on desktop. */
+@media (pointer: coarse) {
+  .qty-small button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .search-x {
+    display: inline-grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    margin-right: -6px;
+  }
+
+  .arrow-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* -- 3. Very narrow phones (<=360px): keep the two-up grids from getting
+      cramped and guarantee nothing spills past the edge. -- */
+@media (max-width: 360px) {
+  .restaurant-grid,
+  .product-grid {
+    gap: 10px;
+  }
+
+  .card-title h3,
+  .product-card h3 {
+    font-size: 14px;
+  }
+
+  .hero-copy {
+    padding: 20px 16px;
+  }
+
+  .hero p {
+    max-width: 240px;
+  }
+
+  /* The cart summary bar is fixed-position; keep its label from overflowing. */
+  .cart-panel.has-items .summary-total span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* -- Global belt-and-suspenders: images never widen their container. Applied
+      narrowly to media so it can't affect the sticky header's containing
+      block (no overflow clamp on layout ancestors). -- */
+img,
+video {
+  max-width: 100%;
+}
