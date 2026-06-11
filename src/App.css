@@ -3342,3 +3342,39 @@ a:focus-visible {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Accessibility: skip link, focus-within for custom search fields, focus target */
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--charcoal);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+  transform: translateY(-160%);
+  transition: transform 0.18s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid var(--orange);
+  outline-offset: 3px;
+}
+
+#main-content:focus {
+  outline: none;
+}
+
+.cuisine-search:focus-within,
+.search-input-large:focus-within,
+.menu-search:focus-within {
+  outline: 3px solid rgba(255, 106, 0, 0.42);
+  outline-offset: 3px;
+  border-radius: 12px;
+}

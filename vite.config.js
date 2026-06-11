@@ -14,7 +14,19 @@ export default defineConfig(() => {
     build: {
       outDir: "dist",
       emptyOutDir: true,
-      sourcemap: false
+      sourcemap: false,
+      // Split the stable React runtime into its own chunk so app-code redeploys
+      // don't bust the vendor cache for returning visitors.
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("/node_modules/react") || id.includes("/node_modules/scheduler")) {
+              return "react";
+            }
+            return undefined;
+          }
+        }
+      }
     },
     preview: {
       host: "0.0.0.0",
