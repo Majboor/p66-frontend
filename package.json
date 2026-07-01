@@ -4,11 +4,34 @@
   "description": "Premium white-glove food delivery frontend demo.",
   "private": true,
   "type": "module",
+  "author": "Waleed Ajmal",
+  "license": "MIT",
+  "homepage": "https://github.com/waleedsworld/p66-frontend#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/waleedsworld/p66-frontend.git"
+  },
+  "bugs": {
+    "url": "https://github.com/waleedsworld/p66-frontend/issues"
+  },
+  "keywords": [
+    "food-delivery",
+    "pwa",
+    "react",
+    "vite",
+    "storefront",
+    "spa",
+    "demo"
+  ],
   "scripts": {
     "dev": "vite --config vite.config.js",
     "build": "vite build --config vite.config.js",
     "preview": "vite preview --config vite.config.js",
-    "start": "vite preview --config vite.config.js --host 0.0.0.0"
+    "start": "vite preview --config vite.config.js --host 0.0.0.0",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "engines": {
     "node": ">=20.19.0"
@@ -18,7 +41,9 @@
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@vitejs/plugin-react": "^6.0.2",
-    "vite": "^8.0.14"
+    "vite": "^8.0.14",
+    "vitest": "^3.2.7"
   }
 }
