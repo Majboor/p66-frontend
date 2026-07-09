@@ -1,0 +1,9 @@
+# robots.txt for bringit
+User-agent: *
+Allow: /
+
+# The cart and checkout are per-session and hold no indexable content.
+Disallow: /cart
+Disallow: /checkout
+
+Sitemap: https://bringit.app/sitemap.xml

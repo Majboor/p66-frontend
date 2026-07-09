@@ -12,11 +12,78 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="bringit" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="author" content="bringit" />
+    <meta name="keywords" content="food delivery, restaurants, groceries, Lahore, Pakistan, order food online, bringit" />
+
+    <!-- Canonical (runtime updates this per-view via the History-API router) -->
+    <link rel="canonical" href="https://bringit.app/" />
+
+    <!-- Icons / PWA -->
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/favicon.svg" color="#ff6a00" />
+
+    <!-- Open Graph (static fallback for crawlers that don't run JS) -->
+    <meta property="og:site_name" content="bringit" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="bringit | Fast food delivery across Pakistan" />
+    <meta
+      property="og:description"
+      content="Order food, groceries, and local deals with bringit. Fast delivery across Lahore and Pakistan."
+    />
+    <meta property="og:url" content="https://bringit.app/" />
+    <meta property="og:image" content="https://bringit.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="bringit — fast food delivery across Pakistan" />
+    <meta property="og:locale" content="en_PK" />
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="bringit | Fast food delivery across Pakistan" />
+    <meta
+      name="twitter:description"
+      content="Order food, groceries, and local deals with bringit. Fast delivery across Lahore and Pakistan."
+    />
+    <meta name="twitter:image" content="https://bringit.app/og-image.png" />
+    <meta name="twitter:image:alt" content="bringit — fast food delivery across Pakistan" />
+
     <link rel="preconnect" href="https://images.unsplash.com" />
     <title>bringit | Fast food delivery across Pakistan</title>
+
+    <!-- Organization + WebSite structured data (static baseline; the app also
+         emits per-view JSON-LD at runtime). -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "bringit",
+            "url": "https://bringit.app/",
+            "logo": "https://bringit.app/icons/icon-512.png",
+            "description": "Fast food, grocery, and local deal delivery across Pakistan.",
+            "areaServed": "PK"
+          },
+          {
+            "@type": "WebSite",
+            "name": "bringit",
+            "url": "https://bringit.app/",
+            "inLanguage": "en",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://bringit.app/search/{search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
