@@ -4,6 +4,20 @@ const img = (id, width = 900, height = 540) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&h=${height}&q=82`;
 
 const EXPORT_SLUG = "askari-2-lahore-cantt";
+const CART_STORAGE_KEY = "bringit-cart-v1";
+
+const readStoredCart = () => {
+  try {
+    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Keep only well-formed line items so a corrupted store can never crash the cart.
+    return parsed.filter((entry) => entry && entry.id && Number(entry.qty) > 0);
+  } catch {
+    return [];
+  }
+};
 const MENU_CATEGORY_TAB_LIMIT = 5;
 const MENU_ITEMS_VISIBLE_LIMIT = 24;
 const MENU_SEARCH_VISIBLE_LIMIT = 30;
@@ -1992,10 +2006,18 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedVariationId, setSelectedVariationId] = useState("");
   const [modalQty, setModalQty] = useState(1);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(readStoredCart);
   const [celebratingOrder, setCelebratingOrder] = useState(false);
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    } catch {
+      // Storage can be unavailable (private mode / quota) — cart just stays in memory.
+    }
+  }, [cart]);
 
   useEffect(() => {
     const controller = new AbortController();
