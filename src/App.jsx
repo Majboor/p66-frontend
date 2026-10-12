@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import OrderTrackingPage, { createOrder, saveOrder, readOrders } from "./OrderTracking.jsx";
+import OrderTrackingPage, { readOrders, submitOrder } from "./OrderTracking.jsx";
+import { describeOrderApiError } from "./api/orders.js";
 import { useHeroVariant, HeroVariantB } from "./HeroVariants.jsx";
 
 const img = (id, width = 900, height = 540) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&h=${height}&q=82`;
 
-const EXPORT_SLUG = "askari-2-lahore-cantt";
 const CART_STORAGE_KEY = "bringit-cart-v1";
 
 const readStoredCart = () => {
@@ -41,6 +41,15 @@ const slugify = (value) =>
     .replace(/^-+|-+$/g, "") || "bringit";
 
 const getRestaurantSlug = (restaurant) => slugify(`${restaurant.name || restaurant.shortName}-${restaurant.vendorCode || restaurant.id}`);
+
+// The order gateway identifies a kitchen by the `slug` it publishes on
+// /api/brands. The closest thing this client holds is the cart line's restaurant
+// id — the vendor code when the catalogue supplied one, the seed id otherwise —
+// so that is what gets sent. A slug the gateway does not know comes back as a
+// 400 `invalid_order` carrying its own message, which checkout shows verbatim
+// instead of guessing on the customer's behalf.
+const getBrandSlug = (cart, restaurant) =>
+  slugify(cart?.[0]?.restaurantId || restaurant?.vendorCode || restaurant?.id);
 
 const getStableIconIndex = (value) =>
   String(value || "")
@@ -1955,9 +1964,41 @@ function CartPage({ cart, restaurant, onBack, onCheckout, onQtyChange }) {
   );
 }
 
-function DeliveryPage({ cart, restaurant, onBack, onPlaceOrder }) {
+/*
+ * Checkout.
+ *
+ * The fields used to be decorative (uncontrolled `defaultValue`s that nothing
+ * ever read, because the order was minted client-side). They are now the actual
+ * request body: the gateway needs a real name, a real phone and a real address,
+ * so the form is controlled and the Place order button waits for them. The
+ * placeholder identity that used to be pre-filled ("Afzal", "+92 300 0000000")
+ * is gone for the same reason — a real kitchen would have been handed it.
+ */
+function DeliveryPage({ cart, restaurant, onBack, onPlaceOrder, placing, placeError }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const restaurantName = cart[0]?.restaurantName || restaurant?.name || "Bholli Juice & Dry Fruit";
+
+  const [details, setDetails] = useState({
+    addressLine1: "Flat 23E Lahore",
+    addressUnit: "",
+    addressArea: "",
+    addressCity: "Lahore",
+    addressNote: "",
+    customerName: "",
+    customerPhone: "",
+    paymentLabel: "Cash on delivery"
+  });
+
+  const setField = (field) => (event) => {
+    const { value } = event.target;
+    setDetails((current) => ({ ...current, [field]: value }));
+  };
+
+  // The gateway rejects an order with no contact details, so there is no point
+  // sending one — say so here instead of round-tripping a 400.
+  const missingContact = !details.customerName.trim() || !details.customerPhone.trim();
+  const missingAddress = !details.addressLine1.trim() || !details.addressCity.trim();
+  const canPlace = Boolean(cart.length) && !missingContact && !missingAddress && !placing;
 
   return (
     <main className="shell delivery-page">
@@ -1968,15 +2009,29 @@ function DeliveryPage({ cart, restaurant, onBack, onPlaceOrder }) {
           <h2>Delivery address</h2>
           <label>
             Street address
-            <input defaultValue="Flat 23E Lahore" />
+            <input value={details.addressLine1} onChange={setField("addressLine1")} />
           </label>
+          <div className="two-fields">
+            <label>
+              Area
+              <input placeholder="Gulberg, Model Town, …" value={details.addressArea} onChange={setField("addressArea")} />
+            </label>
+            <label>
+              City
+              <input value={details.addressCity} onChange={setField("addressCity")} />
+            </label>
+          </div>
           <label>
             Floor / unit
-            <input placeholder="Apartment, suite, floor" />
+            <input placeholder="Apartment, suite, floor" value={details.addressUnit} onChange={setField("addressUnit")} />
           </label>
           <label>
             Delivery note
-            <textarea placeholder="Meet at the reception, ring bell, etc." />
+            <textarea
+              placeholder="Meet at the reception, ring bell, etc."
+              value={details.addressNote}
+              onChange={setField("addressNote")}
+            />
           </label>
         </div>
         <div className="form-card">
@@ -1984,22 +2039,37 @@ function DeliveryPage({ cart, restaurant, onBack, onPlaceOrder }) {
           <div className="two-fields">
             <label>
               Name
-              <input defaultValue="Afzal" />
+              <input placeholder="Your name" value={details.customerName} onChange={setField("customerName")} />
             </label>
             <label>
               Phone number
-              <input defaultValue="+92 300 0000000" />
+              <input
+                type="tel"
+                placeholder="+92 300 0000000"
+                value={details.customerPhone}
+                onChange={setField("customerPhone")}
+              />
             </label>
           </div>
         </div>
         <div className="form-card">
           <h2>Payment</h2>
           <label className="radio-card">
-            <input type="radio" name="pay" defaultChecked />
+            <input
+              type="radio"
+              name="pay"
+              checked={details.paymentLabel === "Cash on delivery"}
+              onChange={() => setDetails((current) => ({ ...current, paymentLabel: "Cash on delivery" }))}
+            />
             Cash on delivery
           </label>
           <label className="radio-card">
-            <input type="radio" name="pay" />
+            <input
+              type="radio"
+              name="pay"
+              checked={details.paymentLabel === "Card ending in 4242"}
+              onChange={() => setDetails((current) => ({ ...current, paymentLabel: "Card ending in 4242" }))}
+            />
             Card ending in 4242
           </label>
         </div>
@@ -2015,7 +2085,18 @@ function DeliveryPage({ cart, restaurant, onBack, onPlaceOrder }) {
         <div className="summary-line"><span>Subtotal</span><strong>{formatPrice(subtotal)}</strong></div>
         <div className="summary-line"><span>Delivery fee</span><strong>Free</strong></div>
         <div className="summary-total"><span>Total</span><strong>{formatPrice(subtotal)}</strong></div>
-        <button className="primary-button" type="button" onClick={onPlaceOrder}>Place order</button>
+        <p className="summary-note">bringit confirms the final total when it accepts the order.</p>
+        {placeError && (
+          <p className="checkout-error" role="alert">
+            <strong>{placeError}</strong> Your cart is untouched — try again when you're ready.
+          </p>
+        )}
+        <button className="primary-button" disabled={!canPlace} type="button" onClick={() => onPlaceOrder(details)}>
+          {placing ? "Placing order…" : "Place order"}
+        </button>
+        {!placing && (missingContact || missingAddress) && (
+          <p className="summary-note">Add your name, phone and street address to place the order.</p>
+        )}
       </aside>
     </main>
   );
@@ -2026,8 +2107,10 @@ export default function App() {
   const [view, setView] = useState(initialRoute.view);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState(initialRoute.query || "bholi");
-  const [restaurantItems, setRestaurantItems] = useState(restaurants);
-  const [restaurantDetails, setRestaurantDetails] = useState({});
+  // The restaurant catalogue is the bundled seed. It used to be fetched from
+  // /api/exports/..., which never existed — see the note on the removed calls
+  // below — so there is nothing left to swap it out at runtime.
+  const restaurantItems = restaurants;
   const [selectedRestaurant, setSelectedRestaurant] = useState(initialRoute.restaurant || restaurants[0]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedVariationId, setSelectedVariationId] = useState("");
@@ -2035,6 +2118,8 @@ export default function App() {
   const [cart, setCart] = useState(readStoredCart);
   const [celebratingOrder, setCelebratingOrder] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState(() => (initialRoute.view === "order" ? readOrders()[0]?.id || null : null));
+  const [placing, setPlacing] = useState(false);
+  const [placeError, setPlaceError] = useState("");
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
@@ -2046,41 +2131,19 @@ export default function App() {
     }
   }, [cart]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetch(`/api/exports/${EXPORT_SLUG}/demo`, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Seed export unavailable");
-        }
-        return response.json();
-      })
-      .then((payload) => {
-        if (!payload.restaurants?.length) return;
-
-        setRestaurantItems(payload.restaurants);
-        setSelectedRestaurant((current) => {
-          const routedRestaurant = getRouteState(payload.restaurants).restaurant;
-          if (routedRestaurant) {
-            return routedRestaurant;
-          }
-
-          if (current.vendorCode) {
-            return current;
-          }
-
-          return payload.restaurants.find((restaurant) => restaurant.vendorCode === payload.defaultVendorCode) || payload.restaurants[0];
-        });
-      })
-      .catch((error) => {
-        if (error.name !== "AbortError") {
-          console.info("Using built-in demo seed fallback.");
-        }
-      });
-
-    return () => controller.abort();
-  }, []);
+  /*
+   * Two fetches used to live here: /api/exports/<slug>/demo for the restaurant
+   * list and /api/exports/<slug>/restaurants/<vendor>/demo for a menu. Neither
+   * endpoint has ever existed on this deployment. Because the host rewrites
+   * every unknown path to index.html with HTTP 200, `response.ok` was true, the
+   * `.json()` then threw on `<!doctype html>`, and the catch block quietly
+   * swapped in the bundled seed — an API that looked alive and was not.
+   *
+   * They are gone rather than repointed: the order gateway publishes brands and
+   * menus under a different shape (/api/brands, /api/brands/:slug/menu), and
+   * swapping the catalogue over is a separate change from making orders real.
+   * The catalogue is the bundled seed and says so, which is at least true.
+   */
 
   useEffect(() => {
     const onPopState = () => {
@@ -2095,59 +2158,6 @@ export default function App() {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [restaurantItems]);
-
-  useEffect(() => {
-    const vendorCode = selectedRestaurant?.vendorCode;
-
-    if (!vendorCode || Array.isArray(selectedRestaurant.menuSections) || selectedRestaurant.menuLoadFailed) {
-      return undefined;
-    }
-
-    if (restaurantDetails[vendorCode]) {
-      setSelectedRestaurant((current) =>
-        current.vendorCode === vendorCode
-          ? { ...current, ...restaurantDetails[vendorCode], menuLoadFailed: false }
-          : current
-      );
-      return undefined;
-    }
-
-    const controller = new AbortController();
-
-    fetch(`/api/exports/${EXPORT_SLUG}/restaurants/${vendorCode}/demo`, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Restaurant export unavailable");
-        }
-        return response.json();
-      })
-      .then((payload) => {
-        if (!payload.restaurant) return;
-
-        setRestaurantDetails((current) => ({
-          ...current,
-          [vendorCode]: payload.restaurant
-        }));
-        setSelectedRestaurant((current) =>
-          current.vendorCode === vendorCode ? { ...current, ...payload.restaurant, menuLoadFailed: false } : current
-        );
-      })
-      .catch((error) => {
-        if (error.name !== "AbortError") {
-          console.info("Menu export unavailable for selected restaurant.");
-          setSelectedRestaurant((current) =>
-            current.vendorCode === vendorCode ? { ...current, menuLoadFailed: true } : current
-          );
-        }
-      });
-
-    return () => controller.abort();
-  }, [
-    selectedRestaurant?.vendorCode,
-    selectedRestaurant?.menuSections?.length,
-    selectedRestaurant?.menuLoadFailed,
-    restaurantDetails
-  ]);
 
   useEffect(() => {
     const seo = getSeo(view, query, selectedRestaurant);
@@ -2189,11 +2199,7 @@ export default function App() {
   };
 
   const openRestaurant = (restaurant) => {
-    const detailedRestaurant = restaurant.vendorCode && restaurantDetails[restaurant.vendorCode]
-      ? { ...restaurant, ...restaurantDetails[restaurant.vendorCode], menuLoadFailed: false }
-      : { ...restaurant, menuLoadFailed: false };
-
-    setSelectedRestaurant(detailedRestaurant);
+    setSelectedRestaurant({ ...restaurant, menuLoadFailed: false });
     setView("restaurant");
     pushRoute(`${restaurantRoutePrefix}${getRestaurantSlug(restaurant)}`);
     goTop();
@@ -2282,6 +2288,45 @@ export default function App() {
     goTop();
   };
 
+  /*
+   * Place the order against the gateway.
+   *
+   * Only the server can create an order now, so this is the only path that
+   * produces one. On success the server's code, token, stage and totals are what
+   * get stored and routed to. On failure nothing is stored, the cart is left
+   * exactly as it was, and we stay on checkout with the reason: a customer must
+   * never be shown a tracking screen for an order no kitchen ever received.
+   */
+  const placeOrderFromCheckout = async (details) => {
+    if (!cart.length || placing) return;
+
+    setPlacing(true);
+    setPlaceError("");
+
+    try {
+      const order = await submitOrder(cart, {
+        ...details,
+        brandSlug: getBrandSlug(cart, selectedRestaurant),
+        restaurantName: cart[0]?.restaurantName || selectedRestaurant?.name,
+        etaMinutes: getDeliveryMinutes(selectedRestaurant),
+        addressLabel: [details.addressLine1, details.addressArea, details.addressCity]
+          .map((part) => String(part || "").trim())
+          .filter(Boolean)
+          .join(", ")
+      });
+
+      setActiveOrderId(order.id);
+      setCart([]);
+      setCelebratingOrder(true);
+      window.setTimeout(() => setCelebratingOrder(false), 1400);
+      navigate("order", { path: orderRoute });
+    } catch (error) {
+      setPlaceError(describeOrderApiError(error));
+    } finally {
+      setPlacing(false);
+    }
+  };
+
   return (
     <div className={`app view-${view}`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
@@ -2328,20 +2373,9 @@ export default function App() {
             cart={cart}
             restaurant={selectedRestaurant}
             onBack={() => navigate("cart")}
-            onPlaceOrder={() => {
-              if (!cart.length) return;
-
-              const order = createOrder(cart, {
-                restaurantName: cart[0]?.restaurantName || selectedRestaurant?.name,
-                etaMinutes: getDeliveryMinutes(selectedRestaurant)
-              });
-              saveOrder(order);
-              setActiveOrderId(order.id);
-              setCart([]);
-              setCelebratingOrder(true);
-              window.setTimeout(() => setCelebratingOrder(false), 1400);
-              navigate("order", { path: orderRoute });
-            }}
+            onPlaceOrder={placeOrderFromCheckout}
+            placing={placing}
+            placeError={placeError}
           />
         )}
         {view === "order" && (

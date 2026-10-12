@@ -3378,3 +3378,32 @@ a:focus-visible {
   outline-offset: 3px;
   border-radius: 12px;
 }
+
+/* --- checkout: real order placement ---------------------------------------
+   The Place order button now waits on a round trip to the order gateway, so
+   checkout needs somewhere to say "this is still going" and somewhere to say
+   "this did not work, and your cart is untouched". */
+.summary-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.checkout-error {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 11px;
+  border: 1px solid #f3c2b4;
+  background: #fff1ec;
+  color: #8f2f12;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.checkout-error strong {
+  display: block;
+  font-weight: 800;
+}

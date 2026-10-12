@@ -553,3 +553,144 @@
     font-size: 2.2rem;
   }
 }
+
+/* --- liveness, failure and cancellation -----------------------------------
+   The tracker's stage comes from the gateway now, so the screen has to be able
+   to say where that stage came from: live from the server, the last thing the
+   server told us before it became unreachable, or a leftover demo order that
+   was never sent anywhere. */
+.ot-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #e7f6ee;
+  color: #1d7a4c;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+}
+
+.ot-live-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ot-live-pill.stale {
+  background: #fdeee4;
+  color: #9a4b16;
+}
+
+.ot-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.ot-notice strong {
+  font-weight: 800;
+}
+
+.ot-notice svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.ot-notice.warn {
+  background: #fff1ec;
+  border: 1px solid #f3c2b4;
+  color: #8f2f12;
+}
+
+.ot-notice.demo {
+  background: var(--soft);
+  border: 1px solid var(--soft-gray);
+  color: var(--muted);
+}
+
+/* A cancelled order is not a delivery in progress: the map stops, the courier
+   glyph becomes a cross, and the timeline ends on a cancelled row instead of
+   listing stages that will never happen. */
+.ot-status-card.cancelled .ot-countdown {
+  color: var(--muted);
+}
+
+.ot-map.cancelled {
+  filter: saturate(0.45);
+}
+
+.ot-courier-dot.stopped circle {
+  fill: var(--muted);
+  animation: none;
+}
+
+.ot-step.cancelled .ot-step-marker {
+  background: #8f2f12;
+  border-color: #8f2f12;
+  color: #fff;
+}
+
+.ot-step.cancelled .ot-step-body strong {
+  color: #8f2f12;
+}
+
+.ot-cancel-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--soft-gray);
+}
+
+.ot-cancel {
+  border: 1px solid var(--soft-gray);
+  background: #fff;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: var(--muted);
+}
+
+.ot-cancel:hover {
+  border-color: #e3b7a6;
+  color: #8f2f12;
+}
+
+.ot-cancel-row small {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.ot-cancel-row small.ot-cancel-error {
+  color: #8f2f12;
+}
+
+.ot-history-demo {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--soft-gray);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

@@ -2,6 +2,14 @@
   command = "npm run build"
   publish = "dist"
 
+# /api/* is the order gateway's, so it must not be swallowed by the SPA
+# catch-all. A real 404 beats an HTTP 200 carrying the app shell, which is how
+# the dead /api/exports calls used to fail silently.
+[[redirects]]
+  from = "/api/*"
+  to = "/index.html"
+  status = 404
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

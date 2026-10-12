@@ -6,4 +6,4 @@ Allow: /
 Disallow: /cart
 Disallow: /checkout
 
-Sitemap: https://bringit.app/sitemap.xml
+Sitemap: https://bringit.now/sitemap.xml

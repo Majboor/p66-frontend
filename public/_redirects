@@ -1,1 +1,7 @@
-/*    /index.html   200
+# /api/* belongs to the order gateway, not to this SPA. It is listed before the
+# catch-all so an unreachable gateway cannot be answered by the app shell: the
+# previous /api/exports calls got index.html back with HTTP 200, which made a
+# backend that did not exist look alive and quietly fell back to fake data.
+/api/*  /index.html  404
+
+/*      /index.html  200
