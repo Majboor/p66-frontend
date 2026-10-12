@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./OrderTracking.css";
 import {
-  OrderApiError,
-  cancelOrder,
-  describeOrderApiError,
-  fetchOrder,
+  ApiError,
+  describeApiError,
   getRetryDelayMs,
   isPermanentRejection,
   isUnreachable,
-  placeOrder,
   toTimestamp
-} from "./api/orders.js";
+} from "./api/client.js";
+import { cancelOrder, fetchOrder, placeOrder } from "./api/orders.js";
 
 /*
  * Live order tracking + order history.
@@ -250,6 +248,12 @@ export function buildOrderRequest(cart, meta = {}) {
     }
   };
 
+  // The upstream order keys off the customer *profile* id (`cus_...`). The
+  // gateway's documented body has no field for it, so it rides along here and a
+  // gateway that does not know the field can ignore it; without it a signed-in
+  // customer's order is not linked to their account.
+  if (meta.customerId) request.customer_id = String(meta.customerId);
+
   if (fulfilment === "delivery") {
     const addressNotes = [meta.addressUnit, meta.addressNote].map((part) => String(part || "").trim()).filter(Boolean);
     request.address = {
@@ -257,6 +261,7 @@ export function buildOrderRequest(cart, meta = {}) {
       area: String(meta.addressArea || "").trim(),
       city: String(meta.addressCity || "").trim()
     };
+    if (meta.addressLabel) request.address.label = String(meta.addressLabel).trim();
     if (addressNotes.length) request.address.notes = addressNotes.join(" · ");
   }
 
@@ -287,7 +292,7 @@ export function createOrderRecord(payload, cart, meta = {}) {
     etaMinutes: Number(payload?.eta_minutes) || Number(meta.etaMinutes) || 25,
     fulfilment: payload?.fulfilment || meta.fulfilment || "delivery",
     restaurantName: meta.restaurantName || cart?.[0]?.restaurantName || "bringit restaurant",
-    address: meta.addressLabel || meta.addressLine1 || "",
+    address: meta.addressText || meta.addressLine1 || "",
     customerName: meta.customerName || "",
     paymentLabel: meta.paymentLabel || "Cash on delivery",
     courier: COURIERS[hashString(id) % COURIERS.length],
@@ -309,16 +314,16 @@ export function createOrderRecord(payload, cart, meta = {}) {
  */
 export async function submitOrder(cart, meta = {}, { signal } = {}) {
   if (!cart?.length) {
-    throw new OrderApiError("Your cart is empty.", { kind: "rejected", status: 400, code: "invalid_order" });
+    throw new ApiError("Your cart is empty.", { kind: "rejected", status: 400, code: "invalid_order" });
   }
 
-  const payload = await placeOrder(buildOrderRequest(cart, meta), { signal });
+  const payload = await placeOrder(buildOrderRequest(cart, meta), { token: meta.sessionToken, signal });
 
   if (!payload?.order_code || !payload?.order_token) {
     // Without a token there is no way to ever read this order back, which is
     // indistinguishable from not having placed it. Refuse rather than persist an
     // order the customer could never open.
-    throw new OrderApiError("bringit took the order but sent no tracking token.", {
+    throw new ApiError("bringit took the order but sent no tracking token.", {
       kind: "rejected",
       status: 502,
       code: "invalid_order"
@@ -450,7 +455,7 @@ export function useOrderSync(order, onServerOrder) {
           attempts: attempt,
           lastOkAt: current.lastOkAt,
           retryInMs: permanent ? 0 : retryInMs,
-          message: describeOrderApiError(error)
+          message: describeApiError(error)
         }));
         if (!permanent) timer = window.setTimeout(poll, retryInMs);
       } finally {
@@ -797,7 +802,7 @@ export default function OrderTrackingPage({ orderId, onHome, onReorder }) {
       setCancelState({ pending: false, message: "" });
     } catch (error) {
       // A 409 `too_late` is a real answer, not a glitch — show what it said.
-      setCancelState({ pending: false, message: describeOrderApiError(error) });
+      setCancelState({ pending: false, message: describeApiError(error) });
     }
   };
 

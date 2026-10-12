@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import OrderTrackingPage, { readOrders, submitOrder } from "./OrderTracking.jsx";
-import { describeOrderApiError } from "./api/orders.js";
+import { describeApiError } from "./api/client.js";
+import {
+  AccountButton,
+  AuthModal,
+  LocationChip,
+  LocationModal,
+  getSelectedAddress,
+  readAddressBook,
+  readSession,
+  signOut,
+  upsertAddress,
+  writeAddressBook
+} from "./Account.jsx";
 import { useHeroVariant, HeroVariantB } from "./HeroVariants.jsx";
 
 const img = (id, width = 900, height = 540) =>
@@ -982,23 +994,29 @@ function FakeQr() {
   );
 }
 
-function Header({ cartCount, onSearchOpen, onHome, onCart, query, view, onClearSearch }) {
+function Header({
+  cartCount,
+  onSearchOpen,
+  onHome,
+  onCart,
+  query,
+  view,
+  onClearSearch,
+  session,
+  address,
+  onSignIn,
+  onSignOut,
+  onLocation
+}) {
   const searchValue = view === "results" ? query : "";
 
   return (
     <header className="site-header">
       <div className="top-line shell">
         <BringitLogo onClick={onHome} />
-        <button className="location-chip" type="button">
-          <Icon name="location" />
-          <span>Flat 23E Lahore</span>
-        </button>
+        <LocationChip address={address} onClick={onLocation} />
         <nav className="user-nav" aria-label="User">
-          <button type="button">
-            <Icon name="user" />
-            Afzal
-            <span className="chev"><Icon name="chevronDown" size={22} /></span>
-          </button>
+          <AccountButton session={session} onSignIn={onSignIn} onSignOut={onSignOut} />
           <button type="button">
             <Icon name="globe" />
             EN
@@ -1029,7 +1047,7 @@ function Header({ cartCount, onSearchOpen, onHome, onCart, query, view, onClearS
               Shops
             </button>
           </div>
-          <LocationTip />
+          {!address && <LocationTip />}
           <div className={`header-search ${view === "results" ? "compact-search" : ""}`}>
             <button className="header-search-main" type="button" onClick={onSearchOpen}>
               <Icon name="search" size={26} />
@@ -1971,21 +1989,29 @@ function CartPage({ cart, restaurant, onBack, onCheckout, onQtyChange }) {
  * ever read, because the order was minted client-side). They are now the actual
  * request body: the gateway needs a real name, a real phone and a real address,
  * so the form is controlled and the Place order button waits for them. The
- * placeholder identity that used to be pre-filled ("Afzal", "+92 300 0000000")
- * is gone for the same reason — a real kitchen would have been handed it.
+ * placeholder identity that used to be pre-filled ("Afzal", "+92 300 0000000",
+ * "Flat 23E Lahore") is gone for the same reason — a real kitchen would have
+ * been handed it. What fills the form now is the signed-in account and the
+ * address chosen in the header, and edits made here are saved back to the
+ * address book so the two never disagree.
+ *
+ * App.jsx keys this component on the selected address id, so picking a
+ * different address while standing on checkout re-seeds the form.
  */
-function DeliveryPage({ cart, restaurant, onBack, onPlaceOrder, placing, placeError }) {
+function DeliveryPage({ cart, restaurant, onBack, onPlaceOrder, placing, placeError, session, address }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const restaurantName = cart[0]?.restaurantName || restaurant?.name || "Bholli Juice & Dry Fruit";
 
   const [details, setDetails] = useState({
-    addressLine1: "Flat 23E Lahore",
+    addressId: address?.id || "",
+    addressLabel: address?.label || "",
+    addressLine1: address?.line1 || "",
     addressUnit: "",
-    addressArea: "",
-    addressCity: "Lahore",
-    addressNote: "",
-    customerName: "",
-    customerPhone: "",
+    addressArea: address?.area || "",
+    addressCity: address?.city || "Lahore",
+    addressNote: address?.notes || "",
+    customerName: session?.displayName || "",
+    customerPhone: session?.phone || "",
     paymentLabel: "Cash on delivery"
   });
 
@@ -2120,6 +2146,14 @@ export default function App() {
   const [activeOrderId, setActiveOrderId] = useState(() => (initialRoute.view === "order" ? readOrders()[0]?.id || null : null));
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState("");
+  // Who is signed in, and where they want their food. Both are read straight
+  // out of localStorage on first render so the header never flashes a signed-out
+  // state for somebody who is signed in.
+  const [session, setSession] = useState(readSession);
+  const [addressBook, setAddressBook] = useState(readAddressBook);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const selectedAddress = getSelectedAddress(addressBook);
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
@@ -2309,11 +2343,31 @@ export default function App() {
         brandSlug: getBrandSlug(cart, selectedRestaurant),
         restaurantName: cart[0]?.restaurantName || selectedRestaurant?.name,
         etaMinutes: getDeliveryMinutes(selectedRestaurant),
-        addressLabel: [details.addressLine1, details.addressArea, details.addressCity]
+        // The id carts and orders key off upstream is the customer profile id,
+        // not the user id. Anonymous ordering still works; it just is not linked
+        // to an account.
+        customerId: session?.profileId || "",
+        sessionToken: session?.token || "",
+        addressText: [details.addressLine1, details.addressArea, details.addressCity]
           .map((part) => String(part || "").trim())
           .filter(Boolean)
           .join(", ")
       });
+
+      // The address that just took an order is the one worth keeping. Saving it
+      // here is also what makes the header chip agree with what the kitchen got.
+      setAddressBook(
+        writeAddressBook(
+          upsertAddress(addressBook, {
+            id: details.addressId,
+            label: details.addressLabel,
+            line1: details.addressLine1,
+            area: details.addressArea,
+            city: details.addressCity,
+            notes: details.addressNote
+          })
+        )
+      );
 
       setActiveOrderId(order.id);
       setCart([]);
@@ -2321,7 +2375,7 @@ export default function App() {
       window.setTimeout(() => setCelebratingOrder(false), 1400);
       navigate("order", { path: orderRoute });
     } catch (error) {
-      setPlaceError(describeOrderApiError(error));
+      setPlaceError(describeApiError(error));
     } finally {
       setPlacing(false);
     }
@@ -2334,9 +2388,14 @@ export default function App() {
         cartCount={cartCount}
         query={query}
         view={view}
+        session={session}
+        address={selectedAddress}
         onSearchOpen={() => setSearchOpen(true)}
         onHome={goHome}
         onCart={goCart}
+        onSignIn={() => setAuthOpen(true)}
+        onSignOut={() => setSession(signOut())}
+        onLocation={() => setLocationOpen(true)}
         onClearSearch={() => {
           setQuery("");
           navigate("home");
@@ -2370,8 +2429,11 @@ export default function App() {
         )}
         {view === "delivery" && (
           <DeliveryPage
+            key={selectedAddress?.id || "no-address"}
             cart={cart}
             restaurant={selectedRestaurant}
+            session={session}
+            address={selectedAddress}
             onBack={() => navigate("cart")}
             onPlaceOrder={placeOrderFromCheckout}
             placing={placing}
@@ -2396,6 +2458,13 @@ export default function App() {
         onCart={goCart}
       />
       <OrderCelebration active={celebratingOrder} />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSignedIn={setSession} />
+      <LocationModal
+        open={locationOpen}
+        book={addressBook}
+        onClose={() => setLocationOpen(false)}
+        onChange={(nextBook) => setAddressBook(writeAddressBook(nextBook))}
+      />
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onSearch={runSearch} />
       <ItemModal
         item={selectedItem}

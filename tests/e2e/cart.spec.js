@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ORDER_CODE, ORDER_TOKEN, ORDERS_STORAGE_KEY, mockOrderGateway } from "./gateway.js";
+import { ORDER_CODE, ORDER_TOKEN, ORDERS_STORAGE_KEY, mockOrderGateway, seedAddress } from "./gateway.js";
 
 const CART_KEY = "bringit-cart-v1";
 
@@ -71,6 +71,8 @@ test.describe("cart + checkout", () => {
     // Placement is a real POST to the order gateway now, so the gateway is
     // mocked and the contact fields it requires are filled in.
     const gateway = await mockOrderGateway(page);
+    // Checkout needs a chosen delivery address; the hardcoded one is gone.
+    await seedAddress(page);
 
     await addFirstItemToCart(page);
     await page.locator(".cart-button").click();
@@ -99,6 +101,7 @@ test.describe("cart + checkout", () => {
 
   test("will not place an order without the contact details the gateway needs", async ({ page }) => {
     await mockOrderGateway(page);
+    await seedAddress(page);
     await addFirstItemToCart(page);
     await page.locator(".cart-button").click();
     await page.getByRole("button", { name: /proceed to checkout/i }).click();
@@ -113,6 +116,7 @@ test.describe("cart + checkout", () => {
 
   test("keeps the cart and stays on checkout when the gateway is unreachable", async ({ page }) => {
     await mockOrderGateway(page, { offline: true });
+    await seedAddress(page);
 
     await addFirstItemToCart(page);
     await page.locator(".cart-button").click();

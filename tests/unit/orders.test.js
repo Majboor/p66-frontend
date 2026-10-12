@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  OrderApiError,
-  cancelOrder,
-  describeOrderApiError,
-  fetchOrder,
+  ApiError,
+  describeApiError,
   getRetryDelayMs,
   isPermanentRejection,
   isUnreachable,
   toTimestamp
-} from "../../src/api/orders.js";
+} from "../../src/api/client.js";
+import { cancelOrder, fetchOrder } from "../../src/api/orders.js";
 import {
   CANCELLED_STAGE,
   ORDER_STAGES,
@@ -196,10 +195,10 @@ describe("the cancelled stage", () => {
 
     const error = await cancelOrder("BRG-7Q2M4X", "tok_f4c3b2a1").catch((caught) => caught);
 
-    expect(error).toBeInstanceOf(OrderApiError);
+    expect(error).toBeInstanceOf(ApiError);
     expect(error.kind).toBe("rejected");
     expect(error.code).toBe("too_late");
-    expect(describeOrderApiError(error)).toBe("The kitchen has already accepted this order.");
+    expect(describeApiError(error)).toBe("The kitchen has already accepted this order.");
 
     const [url, init] = globalThis.fetch.mock.calls[0];
     expect(url).toBe("/api/orders/BRG-7Q2M4X/cancel");
@@ -293,7 +292,7 @@ describe("token persistence", () => {
   it("refuses an acceptance that carries no token, because it could never be read back", async () => {
     globalThis.fetch.mockResolvedValue(jsonResponse(201, { ...PLACED_PAYLOAD, order_token: undefined }));
 
-    await expect(submitOrder(CART, META)).rejects.toBeInstanceOf(OrderApiError);
+    await expect(submitOrder(CART, META)).rejects.toBeInstanceOf(ApiError);
     expect(window.localStorage.getItem(ORDERS_KEY)).toBeNull();
   });
 
@@ -310,11 +309,11 @@ describe("an unreachable gateway", () => {
 
     const error = await fetchOrder("BRG-7Q2M4X", "tok_f4c3b2a1").catch((caught) => caught);
 
-    expect(error).toBeInstanceOf(OrderApiError);
+    expect(error).toBeInstanceOf(ApiError);
     expect(error.kind).toBe("offline");
     expect(isUnreachable(error)).toBe(true);
     expect(isPermanentRejection(error)).toBe(false);
-    expect(describeOrderApiError(error)).toBe("We can't reach bringit right now.");
+    expect(describeApiError(error)).toBe("We can't reach bringit right now.");
   });
 
   it("treats an HTTP 200 carrying the app shell as unreachable", async () => {
@@ -379,7 +378,7 @@ describe("an unreachable gateway", () => {
     expect(error.code).toBe("bad_token");
     expect(isUnreachable(error)).toBe(false);
     expect(isPermanentRejection(error)).toBe(true);
-    expect(describeOrderApiError(error)).toBe("This order can't be opened on this device.");
+    expect(describeApiError(error)).toBe("This order can't be opened on this device.");
   });
 
   it("keeps retrying a server-side failure", async () => {
@@ -404,7 +403,7 @@ describe("an unreachable gateway", () => {
 
     expect(error.code).toBe("unavailable_item");
     expect(error.menuItemId).toBe("small");
-    expect(describeOrderApiError(error)).toBe("Falsa Juice just sold out.");
+    expect(describeApiError(error)).toBe("Falsa Juice just sold out.");
     expect(readOrders()).toEqual([]);
   });
 });

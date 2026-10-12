@@ -140,3 +140,147 @@ export async function seedStoredOrder(page, overrides = {}) {
 
   return order;
 }
+
+// --- accounts and addresses -------------------------------------------------
+
+export const SESSION_STORAGE_KEY = "bringit-session-v1";
+export const ADDRESS_STORAGE_KEY = "bringit-addresses-v1";
+
+export const USER_ID = "usr_ba5028a96d304527";
+export const PROFILE_ID = "cus_f2d4f47c458e42e6";
+export const SESSION_TOKEN = "tok_17fedb2c85bf458e";
+export const VERIFICATION_CODE = "883469";
+
+/*
+ * Stands in for the auth and customer-profile routes, with the real captured
+ * shapes: register leaves the account PENDING_VERIFICATION and returns a code,
+ * login before verifying is a 403, and the profile id is the `cus_...` one that
+ * carts and orders key off.
+ */
+export async function mockAccountApi(page, options = {}) {
+  const state = {
+    offline: Boolean(options.offline),
+    verified: options.verified !== false,
+    password: options.password || "Doc#2026",
+    logins: 0,
+    profiles: 0
+  };
+
+  await page.route(/\/api\/v1\/auth\//, async (route) => {
+    if (state.offline) {
+      await route.abort("connectionfailed");
+      return;
+    }
+    const { pathname } = new URL(route.request().url());
+    const body = route.request().postDataJSON() || {};
+
+    if (pathname.endsWith("/register")) {
+      state.verified = false;
+      await route.fulfill(
+        asJson(
+          {
+            user: { id: USER_ID, email: body.email, display_name: body.display_name, status: "PENDING_VERIFICATION" },
+            verification: { id: "vcd_0bfabf9ed65f458a", code: VERIFICATION_CODE, status: "PENDING" },
+            verification_required: true
+          },
+          201
+        )
+      );
+      return;
+    }
+
+    if (pathname.endsWith("/verify-code")) {
+      if (body.code !== VERIFICATION_CODE) {
+        await route.fulfill(asJson({ error: "invalid_code" }, 400));
+        return;
+      }
+      state.verified = true;
+      await route.fulfill(asJson({ verification_status: "VERIFIED", user: { id: USER_ID, status: "ACTIVE" } }));
+      return;
+    }
+
+    if (pathname.endsWith("/login")) {
+      if (!state.verified) {
+        await route.fulfill(asJson({ error: "account_not_active", status: "PENDING_VERIFICATION" }, 403));
+        return;
+      }
+      if (body.password !== state.password) {
+        await route.fulfill(asJson({ error: "invalid_credentials" }, 401));
+        return;
+      }
+      state.logins += 1;
+      await route.fulfill(
+        asJson({
+          session: {
+            id: "ses_8ce6469634b54be2",
+            token: SESSION_TOKEN,
+            status: "ACTIVE",
+            user_id: USER_ID,
+            expires_at: "2099-10-12T10:32:46.744713Z"
+          },
+          user: { id: USER_ID, email: body.email, status: "ACTIVE", default_role: "CUSTOMER" }
+        })
+      );
+      return;
+    }
+
+    await route.fulfill(asJson({ error: "not_found" }, 404));
+  });
+
+  await page.route(/\/api\/customers\/profiles/, async (route) => {
+    if (state.offline) {
+      await route.abort("connectionfailed");
+      return;
+    }
+    state.profiles += 1;
+    const body = route.request().postDataJSON() || {};
+    await route.fulfill(
+      asJson({ id: PROFILE_ID, user_id: USER_ID, display_name: body.display_name, addresses: [] }, 201)
+    );
+  });
+
+  return state;
+}
+
+// Signs somebody in before the app boots, for specs that are about something
+// other than the sign-in flow itself.
+export async function seedSession(page, overrides = {}) {
+  const session = {
+    token: SESSION_TOKEN,
+    expiresAt: Date.parse("2099-10-12T10:32:46.744713Z"),
+    userId: USER_ID,
+    profileId: PROFILE_ID,
+    displayName: "Afzal",
+    email: "afzal@example.com",
+    phone: "+923009998888",
+    ...overrides
+  };
+  await page.addInitScript(
+    ([key, value]) => {
+      window.localStorage.setItem(key, value);
+    },
+    [SESSION_STORAGE_KEY, JSON.stringify(session)]
+  );
+  return session;
+}
+
+// Picks a delivery address before the app boots. Checkout needs one, because the
+// hardcoded "Flat 23E Lahore" that used to stand in for it is gone.
+export async function seedAddress(page, overrides = {}) {
+  const address = {
+    id: "adr_home",
+    label: "Home",
+    line1: "12-C Main Boulevard",
+    area: "Gulberg III",
+    city: "Lahore",
+    notes: "Ring the bell",
+    ...overrides
+  };
+  await page.addInitScript(
+    ([key, value]) => {
+      window.localStorage.setItem(key, value);
+    },
+    [ADDRESS_STORAGE_KEY, JSON.stringify({ addresses: [address], selectedId: address.id })]
+  );
+  return address;
+}
