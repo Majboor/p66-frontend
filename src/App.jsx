@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import OrderTrackingPage, { readOrders, submitOrder } from "./OrderTracking.jsx";
 import { describeApiError } from "./api/client.js";
+import { fetchRestaurants, fetchRestaurantMenu } from "./api/catalogue.js";
 import {
   AccountButton,
   AuthModal,
@@ -60,9 +61,6 @@ const getRestaurantSlug = (restaurant) => slugify(`${restaurant.name || restaura
 // so that is what gets sent. A slug the gateway does not know comes back as a
 // 400 `invalid_order` carrying its own message, which checkout shows verbatim
 // instead of guessing on the customer's behalf.
-const getBrandSlug = (cart, restaurant) =>
-  slugify(cart?.[0]?.restaurantId || restaurant?.vendorCode || restaurant?.id);
-
 const getStableIconIndex = (value) =>
   String(value || "")
     .split("")
@@ -2133,12 +2131,68 @@ export default function App() {
   const [view, setView] = useState(initialRoute.view);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState(initialRoute.query || "bholi");
-  // The restaurant catalogue is the bundled seed. It used to be fetched from
-  // /api/exports/..., which never existed — see the note on the removed calls
-  // below — so there is nothing left to swap it out at runtime.
-  const restaurantItems = restaurants;
+  /*
+   * The restaurant catalogue, live from the gateway.
+   *
+   * It starts as the bundled seed and is replaced once the real catalogue
+   * arrives. That order matters: the page paints immediately with something
+   * rather than an empty grid, and if the gateway cannot be reached the
+   * storefront degrades to the seed instead of to nothing. `catalogueIsLive`
+   * records which one is on screen, because telling a customer a bundled
+   * illustration is a real restaurant list would be a lie.
+   */
+  const [catalogue, setCatalogue] = useState(restaurants);
+  const [catalogueIsLive, setCatalogueIsLive] = useState(false);
+  const restaurantItems = catalogue;
   const [selectedRestaurant, setSelectedRestaurant] = useState(initialRoute.restaurant || restaurants[0]);
   const [selectedItem, setSelectedItem] = useState(null);
+
+  // Fetch the catalogue once. An abort on unmount, and a failure that leaves
+  // the seed in place rather than emptying the page.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchRestaurants({ limit: 200, signal: controller.signal })
+      .then((rows) => {
+        if (rows.length === 0) return;
+        setCatalogue(rows);
+        setCatalogueIsLive(true);
+        // Keep whatever the URL asked for; otherwise show a real restaurant
+        // rather than leaving a seed row selected behind a live list.
+        setSelectedRestaurant((current) =>
+          current && rows.some((row) => row.id === current.id) ? current : rows[0]);
+      })
+      .catch(() => {
+        // Seed stays. The storefront is browsable, just not current, and
+        // `catalogueIsLive` keeps that honest.
+      });
+    return () => controller.abort();
+  }, []);
+
+  /*
+   * The selected restaurant's menu.
+   *
+   * Written back onto the restaurant object because the menu page already reads
+   * `menuSections` off it and already has pending and failed states keyed off
+   * `vendorCode` — reusing that is why this needs no new UI. The result is
+   * cached on the row, so going back to a restaurant does not refetch it.
+   */
+  useEffect(() => {
+    const id = selectedRestaurant?.vendorCode;
+    if (!id || Array.isArray(selectedRestaurant.menuSections)) return;
+    const controller = new AbortController();
+    fetchRestaurantMenu(id, { signal: controller.signal })
+      .then((sections) => {
+        const withMenu = { ...selectedRestaurant, menuSections: sections };
+        setSelectedRestaurant((current) => (current?.id === withMenu.id ? withMenu : current));
+        setCatalogue((rows) => rows.map((row) => (row.id === withMenu.id ? withMenu : row)));
+      })
+      .catch((error) => {
+        if (error?.name === "AbortError") return;
+        const failed = { ...selectedRestaurant, menuLoadFailed: true };
+        setSelectedRestaurant((current) => (current?.id === failed.id ? failed : current));
+      });
+    return () => controller.abort();
+  }, [selectedRestaurant?.vendorCode, selectedRestaurant?.menuSections]);
   const [selectedVariationId, setSelectedVariationId] = useState("");
   const [modalQty, setModalQty] = useState(1);
   const [cart, setCart] = useState(readStoredCart);
@@ -2340,7 +2394,9 @@ export default function App() {
     try {
       const order = await submitOrder(cart, {
         ...details,
-        brandSlug: getBrandSlug(cart, selectedRestaurant),
+        // Only a registered brand has a slug; everything else orders by id.
+        brandSlug: selectedRestaurant?.brandSlug || "",
+        restaurantId: cart?.[0]?.restaurantId || selectedRestaurant?.vendorCode || selectedRestaurant?.id || "",
         restaurantName: cart[0]?.restaurantName || selectedRestaurant?.name,
         etaMinutes: getDeliveryMinutes(selectedRestaurant),
         // The id carts and orders key off upstream is the customer profile id,

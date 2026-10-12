@@ -238,8 +238,17 @@ export function buildOrderRequest(cart, meta = {}) {
     });
 
   const fulfilment = meta.fulfilment === "takeaway" ? "takeaway" : "delivery";
+  /*
+   * Which restaurant this is for.
+   *
+   * A registered brand has a slug of its own and keeps it, because the gateway
+   * uses it for the brand's name and tagline. Every other restaurant — and
+   * there are around 750 of them — is identified by id. Sending a slugified
+   * vendor code, which is what this did, resolved to nothing and every order
+   * was refused.
+   */
   const request = {
-    brand_slug: meta.brandSlug || "",
+    ...(meta.brandSlug ? { brand_slug: meta.brandSlug } : { restaurant_id: meta.restaurantId || "" }),
     fulfilment,
     items,
     customer: {

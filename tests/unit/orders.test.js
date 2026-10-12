@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_API_BASE,
   ApiError,
   describeApiError,
   getRetryDelayMs,
@@ -201,7 +202,7 @@ describe("the cancelled stage", () => {
     expect(describeApiError(error)).toBe("The kitchen has already accepted this order.");
 
     const [url, init] = globalThis.fetch.mock.calls[0];
-    expect(url).toBe("/api/orders/BRG-7Q2M4X/cancel");
+    expect(url).toBe(`${DEFAULT_API_BASE}/api/orders/BRG-7Q2M4X/cancel`);
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({ token: "tok_f4c3b2a1" });
   });
@@ -214,7 +215,7 @@ describe("placing an order", () => {
     await submitOrder(CART, META);
 
     const [url, init] = globalThis.fetch.mock.calls[0];
-    expect(url).toBe("/api/orders");
+    expect(url).toBe(`${DEFAULT_API_BASE}/api/orders`);
     expect(init.method).toBe("POST");
 
     const body = JSON.parse(init.body);
@@ -414,7 +415,7 @@ describe("reading an order back", () => {
 
     await fetchOrder("BRG-7Q2M4X", "tok/with+chars");
 
-    expect(globalThis.fetch.mock.calls[0][0]).toBe("/api/orders/BRG-7Q2M4X?token=tok%2Fwith%2Bchars");
+    expect(globalThis.fetch.mock.calls[0][0]).toBe(`${DEFAULT_API_BASE}/api/orders/BRG-7Q2M4X?token=tok%2Fwith%2Bchars`);
   });
 
   it("adopts the server's item list only when there is no local snapshot", () => {

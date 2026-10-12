@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, describeApiError } from "../../src/api/client.js";
+import { ApiError, describeApiError, DEFAULT_API_BASE } from "../../src/api/client.js";
 import { WORKSPACE_ID } from "../../src/api/account.js";
 import {
   ADDRESS_STORAGE_KEY,
@@ -225,7 +225,7 @@ describe("signing in", () => {
 
     const session = await signIn({ email: "afzal@example.com", password: "Doc#2026" });
 
-    expect(pathsCalled()).toEqual(["/api/v1/auth/login", "/api/customers/profiles"]);
+    expect(pathsCalled()).toEqual([`${DEFAULT_API_BASE}/api/v1/auth/login`, `${DEFAULT_API_BASE}/api/customers/profiles`]);
     expect(bodyOf(globalThis.fetch.mock.calls[0])).toEqual({
       email: "afzal@example.com",
       password: "Doc#2026",
@@ -268,7 +268,7 @@ describe("signing in", () => {
 
     const session = await signIn({ email: "afzal@example.com", password: "Doc#2026" });
 
-    expect(pathsCalled()).toEqual(["/api/v1/auth/login"]);
+    expect(pathsCalled()).toEqual([`${DEFAULT_API_BASE}/api/v1/auth/login`]);
     expect(session.profileId).toBe(PROFILE.id);
     expect(JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_KEY))).toEqual({ [USER.id]: PROFILE.id });
   });
@@ -343,7 +343,7 @@ describe("signing up", () => {
 
     const { userId, verificationRequired } = await startSignUp(FORM);
 
-    expect(pathsCalled()).toEqual(["/api/v1/auth/register"]);
+    expect(pathsCalled()).toEqual([`${DEFAULT_API_BASE}/api/v1/auth/register`]);
     expect(bodyOf(globalThis.fetch.mock.calls[0])).toEqual({
       email: FORM.email,
       password: FORM.password,
@@ -368,9 +368,9 @@ describe("signing up", () => {
     const session = await completeSignUp({ ...FORM, userId: USER.id, code: "123456" });
 
     expect(pathsCalled()).toEqual([
-      "/api/v1/auth/verify-code",
-      "/api/v1/auth/login",
-      "/api/customers/profiles"
+      `${DEFAULT_API_BASE}/api/v1/auth/verify-code`,
+      `${DEFAULT_API_BASE}/api/v1/auth/login`,
+      `${DEFAULT_API_BASE}/api/customers/profiles`
     ]);
     const verifyBody = bodyOf(globalThis.fetch.mock.calls[0]);
     expect(verifyBody).toEqual({

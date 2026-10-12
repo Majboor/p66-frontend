@@ -19,7 +19,19 @@
 // (vite.config.js `/api` -> VITE_API_TARGET), so a gateway running locally needs
 // no extra configuration. Deployments that host the gateway on a separate host
 // set VITE_ORDER_API to its origin at build time.
-export const DEFAULT_API_BASE = "";
+/*
+ * The deployed gateway.
+ *
+ * A same-origin default only works where something proxies /api, which the
+ * production host does not — bringit.now is static and the gateway lives on
+ * another machine, so an empty base meant every call hit the CDN, got index.html
+ * back with a 200, and failed in a way that looked like the API was "fine".
+ *
+ * Naming it here rather than relying on a build-time variable means a deploy
+ * that forgets to set one still works. `VITE_ORDER_API` still wins, which is
+ * what the local verification harness and the dev server use.
+ */
+export const DEFAULT_API_BASE = "https://api.bringit.now";
 
 // Trailing slashes would double up against the "/api/..." paths callers pass.
 const stripTrailingSlash = (value) => String(value || "").replace(/\/+$/, "");
