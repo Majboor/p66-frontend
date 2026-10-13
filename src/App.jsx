@@ -399,92 +399,6 @@ const shops = [
   ["Servaid Franchise", "15 min", "#f4f4f4"]
 ];
 
-const menuSections = [
-  {
-    title: "Popular",
-    subtitle: "Most ordered right now.",
-    items: [
-      {
-        id: "falsa",
-        name: "Falsa Juice",
-        price: 297.5,
-        oldPrice: 350,
-        serves: "Serves 1",
-        image: img("photo-1623065422902-30a2d299bbe4", 420, 320),
-        discount: "15% off"
-      },
-      {
-        id: "mango",
-        name: "Mango Shake",
-        price: 340,
-        oldPrice: 400,
-        serves: "Serves 1",
-        image: img("photo-1622597467836-f3285f2131b8", 420, 320),
-        discount: "15% off"
-      },
-      {
-        id: "strawberry",
-        name: "Strawberry Shake",
-        price: 467.5,
-        oldPrice: 550,
-        serves: "Serves 1",
-        image: img("photo-1577805947697-89e18249d767", 420, 320),
-        discount: "15% off"
-      },
-      {
-        id: "banana",
-        name: "Banana Shake",
-        price: 297.5,
-        oldPrice: 350,
-        serves: "Serves 1",
-        image: img("photo-1570696516188-ade861b84a49", 420, 320),
-        discount: "15% off"
-      },
-      {
-        id: "cream-chaat",
-        name: "Cream Chaat",
-        price: 255,
-        oldPrice: 300,
-        serves: "Serves 1",
-        image: img("photo-1540189549336-e6e99c3679fe", 420, 320),
-        discount: "15% off"
-      },
-      {
-        id: "date-khoya",
-        name: "Date Khoya Shake",
-        price: 382.5,
-        oldPrice: 450,
-        serves: "Serves 1",
-        image: img("photo-1572490122747-3968b75cc699", 420, 320),
-        discount: "15% off"
-      }
-    ]
-  },
-  {
-    title: "Ramadan Deals",
-    subtitle: "Sweet bundles for one.",
-    items: [
-      {
-        id: "deal-1",
-        name: "Fruit Cream Bowl",
-        price: 425,
-        oldPrice: 500,
-        serves: "Serves 1",
-        image: img("photo-1519996529931-28324d5a630e", 420, 320),
-        discount: "15% off"
-      },
-      {
-        id: "deal-2",
-        name: "Fresh Juice Combo",
-        price: 680,
-        oldPrice: 800,
-        serves: "Serves 2",
-        image: img("photo-1603569283847-aa295f0d016a", 420, 320),
-        discount: "15% off"
-      }
-    ]
-  }
-];
 
 const EMPTY_MENU_SECTIONS = [];
 
@@ -1611,10 +1525,21 @@ function DealCards({ onSearch }) {
 
 function RestaurantPage({ restaurant, cart, onItemClick, onBackHome, onCheckout, onQtyChange, onSearch }) {
   const hasMenuSections = Array.isArray(restaurant.menuSections);
-  const activeMenuSections = hasMenuSections
-    ? restaurant.menuSections
-    : restaurant.vendorCode ? EMPTY_MENU_SECTIONS : menuSections;
+  /*
+   * No menu means no menu.
+   *
+   * This used to fall back to a bundled demo menu for any restaurant without a
+   * vendor code — and a restaurant has no vendor code exactly when the
+   * catalogue could not be loaded. So during an API outage every restaurant in
+   * the storefront showed the same four invented drinks, which reads as the
+   * site being broken and is worse than showing nothing. A menu is a promise
+   * about what a kitchen will cook; inventing one is not a graceful fallback.
+   */
+  const activeMenuSections = hasMenuSections ? restaurant.menuSections : EMPTY_MENU_SECTIONS;
   const menuIsPending = Boolean(restaurant.vendorCode && !hasMenuSections && !restaurant.menuLoadFailed);
+  // Distinguishes "we cannot reach bringit" from "this restaurant has no items",
+  // which need different words and different advice.
+  const menuUnavailable = !hasMenuSections && (!restaurant.vendorCode || restaurant.menuLoadFailed);
   const [activeMenuCategory, setActiveMenuCategory] = useState(activeMenuSections[0]?.title || "");
   const [menuQuery, setMenuQuery] = useState("");
   const menuTabs = activeMenuSections.slice(0, MENU_CATEGORY_TAB_LIMIT).map((section) => {
@@ -1752,12 +1677,16 @@ function RestaurantPage({ restaurant, cart, onItemClick, onBackHome, onCheckout,
               <h2>
                 {menuIsPending
                   ? "Loading menu..."
-                  : normalizedMenuQuery ? "No matching menu items" : "No menu items available right now"}
+                  : menuUnavailable
+                    ? "We can't load this menu right now"
+                    : normalizedMenuQuery ? "No matching menu items" : "No menu items available right now"}
               </h2>
               <p>
                 {menuIsPending
                   ? "This usually takes a moment."
-                  : restaurant.menuLoadFailed ? "Try another restaurant." : "Try another restaurant or clear the menu search."}
+                  : menuUnavailable
+                    ? "This is a problem on our side, not with the restaurant. Please try again in a moment."
+                    : normalizedMenuQuery ? "Try clearing the menu search." : "Try another restaurant."}
               </p>
             </div>
           )}
@@ -2143,6 +2072,7 @@ export default function App() {
    */
   const [catalogue, setCatalogue] = useState(restaurants);
   const [catalogueIsLive, setCatalogueIsLive] = useState(false);
+  const [catalogueFailed, setCatalogueFailed] = useState(false);
   const restaurantItems = catalogue;
   const [selectedRestaurant, setSelectedRestaurant] = useState(initialRoute.restaurant || restaurants[0]);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -2156,14 +2086,18 @@ export default function App() {
         if (rows.length === 0) return;
         setCatalogue(rows);
         setCatalogueIsLive(true);
+        setCatalogueFailed(false);
         // Keep whatever the URL asked for; otherwise show a real restaurant
         // rather than leaving a seed row selected behind a live list.
         setSelectedRestaurant((current) =>
           current && rows.some((row) => row.id === current.id) ? current : rows[0]);
       })
       .catch(() => {
-        // Seed stays. The storefront is browsable, just not current, and
-        // `catalogueIsLive` keeps that honest.
+        // The seed stays so the page is not empty, but it is not pretended to
+        // be current: none of those rows carry a vendor code, so none of them
+        // can be ordered from, and the banner below says why rather than
+        // leaving a customer to discover it at checkout.
+        setCatalogueFailed(true);
       });
     return () => controller.abort();
   }, []);
@@ -2459,6 +2393,17 @@ export default function App() {
       />
 
       <div id="main-content" tabIndex={-1}>
+        {catalogueFailed && (
+          <div className="shell" role="status" style={{ padding: "12px 0" }}>
+            <p style={{
+              margin: 0, padding: "12px 16px", borderRadius: 12,
+              background: "#fdeceb", color: "#b3261e", fontSize: "0.9rem"
+            }}>
+              We can&rsquo;t reach bringit right now, so restaurants and menus may be out of date
+              and ordering is unavailable. We&rsquo;re retrying.
+            </p>
+          </div>
+        )}
         {view === "home" && <HomePage restaurantItems={restaurantItems} onRestaurant={openRestaurant} onSearch={runSearch} />}
         {view === "results" && (
           <ResultsPage query={query} restaurantItems={restaurantItems} onRestaurant={openRestaurant} />
