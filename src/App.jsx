@@ -2081,25 +2081,57 @@ export default function App() {
   // the seed in place rather than emptying the page.
   useEffect(() => {
     const controller = new AbortController();
-    fetchRestaurants({ limit: 200, signal: controller.signal })
-      .then((rows) => {
-        if (rows.length === 0) return;
-        setCatalogue(rows);
-        setCatalogueIsLive(true);
-        setCatalogueFailed(false);
-        // Keep whatever the URL asked for; otherwise show a real restaurant
-        // rather than leaving a seed row selected behind a live list.
-        setSelectedRestaurant((current) =>
-          current && rows.some((row) => row.id === current.id) ? current : rows[0]);
-      })
-      .catch(() => {
+    let attempt = 0;
+    let timer = null;
+
+    /*
+     * Retry, because one unlucky request should not strand the storefront on
+     * the bundled seed for the whole visit.
+     *
+     * The seed's rows carry no vendor code, so none of them can be ordered
+     * from — a customer who loads the page during a blip would otherwise browse
+     * a catalogue that cannot sell them anything until they reload, and would
+     * have no reason to think of reloading. Backs off, and gives up after a few
+     * goes rather than hammering a backend that is genuinely down; the banner
+     * then stands and says so.
+     */
+    const load = () => {
+      fetchRestaurants({ limit: 200, signal: controller.signal })
+        .then((rows) => {
+          if (rows.length === 0) throw new Error("empty catalogue");
+          setCatalogue(rows);
+          setCatalogueIsLive(true);
+          setCatalogueFailed(false);
+          // Keep whatever the URL asked for; otherwise show a real restaurant
+          // rather than leaving a seed row selected behind a live list.
+          setSelectedRestaurant((current) =>
+            current && rows.some((row) => row.id === current.id) ? current : rows[0]);
+        })
+        .catch((error) => {
+          if (error?.name === "AbortError") return;
+          attempt += 1;
+          if (attempt <= 4) {
+            setCatalogueFailed(true);
+            timer = setTimeout(load, Math.min(1000 * 2 ** (attempt - 1), 8000));
+            return;
+          }
+          onGivenUp();
+        });
+    };
+
+    const onGivenUp = () => {
         // The seed stays so the page is not empty, but it is not pretended to
         // be current: none of those rows carry a vendor code, so none of them
         // can be ordered from, and the banner below says why rather than
         // leaving a customer to discover it at checkout.
-        setCatalogueFailed(true);
-      });
-    return () => controller.abort();
+      setCatalogueFailed(true);
+    };
+
+    load();
+    return () => {
+      controller.abort();
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   /*
